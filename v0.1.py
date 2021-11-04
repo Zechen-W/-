@@ -49,6 +49,8 @@ def watchVideo(browser: webdriver.Chrome,
         time.sleep(sleep_time)
     except:
         print('exception occurred')
+        token_sender.send('token line')
+
     token_receiver.recv()
     browser.switch_to.window(this_window)
     browser.close()
