@@ -68,12 +68,12 @@ def main():
 
     browser = webdriver.Chrome('./chromedriver.exe', options=options)
     browser.get('https://bupt.yuketang.cn/pro/lms/84hxA9Q7Bn5/7899241/studycontent')
-    time.sleep(5)
+    time.sleep(3)
     browser.find_element_by_xpath('//*[@id="app"]/div[2]/div[2]/div[3]/div/div[1]/div/div/div[2]/button/span').click()
-    time.sleep(30)
+    time.sleep(20)
 
     browser.find_element_by_xpath('/html/body/div[4]/div[2]/div[2]/div[3]/div/ul/li[4]').click()
-    time.sleep(3)
+    time.sleep(10)
     videos = browser.find_elements_by_class_name('unit-name-hover')[:123]
     fifo_receiver, fifo_sender = Pipe(False)
     token_receiver, token_sender = Pipe(False)
