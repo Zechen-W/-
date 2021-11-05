@@ -1,6 +1,6 @@
 import multiprocessing.connection
 import threading
-from multiprocessing import Pipe
+from multiprocessing import Queue
 import numpy as np
 from selenium.webdriver.remote.webelement import WebElement
 from selenium import webdriver
@@ -14,14 +14,12 @@ chrome_path = "C:/Program Files/Google/Chrome/Application/chrome.exe"
 
 def watchVideo(browser: webdriver.Chrome,
                video: webdriver.remote.webelement.WebElement,
-               io_sender: multiprocessing.connection.Connection,
-               io_receiver: multiprocessing.connection.Connection,
-               token_sender: multiprocessing.connection.Connection,
-               token_receiver: multiprocessing.connection.Connection):
+               io: multiprocessing.Queue,
+               token: multiprocessing.Queue):
     print('this is in a thread')
-    print(browser, video, io_sender, token_sender, sep='\n')
-    io_receiver.recv()
-    token_receiver.recv()
+    print(browser, video, io, token, sep='\n')
+    io.get()
+    token.get()
     video.click()
     time.sleep(10)
     this_window = browser.window_handles[-1]
@@ -47,22 +45,22 @@ def watchVideo(browser: webdriver.Chrome,
         sleep_time = [int(i) for i in (begin_time + end_time)]
         sleep_time = np.dot(sleep_time, [-3600, -60, -1, 3600, 60, 1]) / 2
         browser.switch_to.window(browser.window_handles[0])
-        token_sender.send('token line')
+        token.put('token line')
         print('sleep time:', sleep_time, sep='\n')
         print('gonna sleep')
         time.sleep(sleep_time)
     except:
         print('exception occurred')
         browser.switch_to.window(browser.window_handles[0])
-        token_sender.send('token line')
+        token.put('token line')
 
-    token_receiver.recv()
+    token.get()
     browser.switch_to.window(this_window)
     browser.close()
     browser.switch_to.window(browser.window_handles[0])
     time.sleep(1)
-    token_sender.send('token line')
-    io_sender.send('io line')
+    token.put('token line')
+    io.put('io line')
 
 
 def main():
@@ -81,11 +79,12 @@ def main():
     browser.find_element_by_xpath('/html/body/div[4]/div[2]/div[2]/div[3]/div/ul/li[4]').click()
     time.sleep(10)
 
-    fifo_receiver, fifo_sender = Pipe(False)
-    token_receiver, token_sender = Pipe(False)
+    fifo = Queue()
+    token = Queue()
     for i in range(n_max_threads):
-        fifo_sender.send('a line')
-    token_sender.send('token line')
+        fifo.put('a line')
+
+    token.put('token')
 
     for loop in range(loops):
         threads = []
@@ -96,8 +95,7 @@ def main():
             if '单元作业' in text or '已完成' in text:
                 continue
 
-            thread = threading.Thread(target=watchVideo, args=(browser, video, fifo_sender, fifo_receiver,
-                                                               token_sender, token_receiver))
+            thread = threading.Thread(target=watchVideo, args=(browser, video, fifo, token))
             thread.start()
             print('a new thread started')
             threads.append(thread)
