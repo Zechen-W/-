@@ -8,6 +8,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 import time
 
 n_max_threads = 4
+loops = 2
 
 
 def watchVideo(browser: webdriver.Chrome,
@@ -37,11 +38,13 @@ def watchVideo(browser: webdriver.Chrome,
         time.sleep(3)
         speed2.click()
         time.sleep(3)
-        sleep_time = browser.find_element_by_xpath(
+        end_time = browser.find_element_by_xpath(
             '//*[@id="video-box"]/div/xt-wrap/xt-controls/xt-inner/xt-time/span[2]')
-        sleep_time = sleep_time.text.split(':')
-        sleep_time = [int(i) for i in sleep_time]
-        sleep_time = np.dot(sleep_time, [3600, 60, 1]) / 2
+        begin_time = browser.find_element_by_xpath('//*[@id="video-box"]/div/xt-wrap/xt-controls/xt-inner/xt-time'
+                                                   '/span[1]')
+        begin_time, end_time = begin_time.text.split(':'), end_time.text.split(':')
+        sleep_time = [int(i) for i in (begin_time + end_time)]
+        sleep_time = np.dot(sleep_time, [-3600, -60, -1, 3600, 60, 1]) / 2
         browser.switch_to.window(browser.window_handles[0])
         token_sender.send('token line')
         print('sleep time:', sleep_time, sep='\n')
@@ -51,7 +54,6 @@ def watchVideo(browser: webdriver.Chrome,
         print('exception occurred')
         browser.switch_to.window(browser.window_handles[0])
         token_sender.send('token line')
-
 
     token_receiver.recv()
     browser.switch_to.window(this_window)
@@ -75,6 +77,8 @@ def main():
     browser.find_element_by_xpath('/html/body/div[4]/div[2]/div[2]/div[3]/div/ul/li[4]').click()
     time.sleep(10)
     videos = browser.find_elements_by_class_name('unit-name-hover')[:123]
+    texts = [i.text for i in browser.find_elements_by_class_name('concrete-tr')][:123]
+
     fifo_receiver, fifo_sender = Pipe(False)
     token_receiver, token_sender = Pipe(False)
     for i in range(n_max_threads):
@@ -82,19 +86,21 @@ def main():
     token_sender.send('token line')
     threads = []
     print('videos:', videos, sep='\n')
-    for video in videos:
-        if video.text == '单元作业':
-            continue
+    for loop in range(loops):
+        for video, text in zip(videos, texts):
+            if '单元作业' in text or '已完成' in text:
+                continue
 
-        thread = threading.Thread(target=watchVideo, args=(browser, video, fifo_sender, fifo_receiver,
-                                                           token_sender, token_receiver))
-        thread.start()
-        print('a new thread started')
-        threads.append(thread)
-        print('threads:', threads, sep='\n')
-
-    for thread in threads:
-        thread.join(60 * 60)
+            thread = threading.Thread(target=watchVideo, args=(browser, video, fifo_sender, fifo_receiver,
+                                                               token_sender, token_receiver))
+            thread.start()
+            print('a new thread started')
+            threads.append(thread)
+            print('threads:', threads, sep='\n')
+        for thread in threads:
+            thread.join(60 * 60)
+        browser.refresh()
+        time.sleep(10)
 
 
 if __name__ == '__main__':
